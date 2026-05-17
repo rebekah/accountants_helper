@@ -1,0 +1,39 @@
+SCENARIO 05 — ACCUMULATED DEFICIT (NEGATIVE RETAINED EARNINGS)
+===============================================================
+Edge case: The company posts a net loss large enough to make retained earnings go
+negative. This creates an "accumulated deficit" — a debit balance in what is normally
+a credit-balance equity account. Year 2 is a partial recovery year that brings RE
+back to positive, but it starts from a negative number.
+
+Why this matters:
+  - A deficit RE account has a DEBIT balance in the trial balance (opposite of normal).
+  - Software that assumes RE is always a credit must handle this sign reversal.
+  - Schedule L line 25 will show a negative number.
+  - When rolling to the next year, beginning RE is negative — confirm the software
+    doesn't treat this as zero or error out.
+
+Key numbers:
+  2023 beginning RE:   $50,000
+  2023 net loss:      ($80,000)
+  2023 ending RE:     ($30,000) ← DEFICIT (debit balance in the GL)
+
+  2024 beginning RE:  ($30,000)
+  2024 net income:     $60,000
+  2024 ending RE:      $30,000  ← recovered to positive
+
+Trial balance note for 2023:
+  3020 Retained Earnings - Beginning shows 50000 in the credit column (normal).
+  After closing, RE would be -30000 (debit balance).
+  In the 2024 trial balance: 3020 shows 30000 in the DEBIT column to represent
+  the deficit opening balance.
+
+Balance sheet note:
+  Total equity in 2023 is NEGATIVE ($10,000 common stock - $30,000 deficit = -$20,000).
+  This is legal and common for companies with heavy startup losses or a bad year.
+  Total assets are supported by debt (liabilities exceed assets net of equity).
+
+What the software should do:
+  - Accept a debit-balance RE account without erroring.
+  - Show the deficit clearly in output (e.g., "Retained Earnings: ($30,000)").
+  - Roll the negative value correctly: ($30,000) + $60,000 = $30,000.
+  - Flag to the user that a deficit exists and confirm before proceeding.

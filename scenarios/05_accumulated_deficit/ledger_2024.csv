@@ -1,0 +1,14 @@
+account_number,account_name,account_type,debit,credit
+1010,Cash,Asset,55000,0
+1020,Accounts Receivable,Asset,40000,0
+1500,Equipment,Asset,100000,0
+1510,Accumulated Depreciation,Contra-Asset,0,50000
+2010,Accounts Payable,Liability,0,45000
+2500,Long-Term Debt,Liability,0,60000
+3010,Common Stock,Equity,0,10000
+3020,Retained Earnings - Beginning (Deficit),Equity,30000,0
+4010,Service Revenue,Revenue,0,280000
+5010,Salaries Expense,Expense,120000,0
+5020,Rent Expense,Expense,36000,0
+5030,Depreciation Expense,Expense,10000,0
+5040,Other Operating Expenses,Expense,54000,0

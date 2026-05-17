@@ -1,0 +1,21 @@
+SCENARIO 01 — CLEAN ROLLOVER (BASELINE)
+========================================
+Edge case: None. This is the happy path.
+
+Books and Schedule L agree exactly in both years. Net income closes cleanly into
+retained earnings. No adjustments, no new accounts, no distributions, no deficit.
+
+All other scenarios should be compared against this one to understand what changed.
+
+Key numbers:
+  Entity:          Meridian Services Inc. (C-Corp, fiscal year = calendar year)
+  2023 beginning RE:  $120,000
+  2023 net income:    $100,000
+  2023 ending RE:     $220,000
+  2024 beginning RE:  $220,000  ← matches 2023 ending (no mismatch)
+  2024 net income:    $116,000
+  2024 ending RE:     $336,000
+
+What the software should do:
+  - Carry forward $220,000 as 2024 beginning RE without any warnings.
+  - Confirm that Schedule L beginning RE for 2024 matches Schedule L ending RE for 2023.

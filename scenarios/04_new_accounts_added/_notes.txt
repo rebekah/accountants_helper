@@ -1,0 +1,37 @@
+SCENARIO 04 — NEW ACCOUNTS ADDED IN YEAR 2
+===========================================
+Edge case: The Year 2 chart of accounts contains GL accounts that did not exist in
+Year 1. The software must handle accounts it cannot find in the prior-year ledger
+and still map everything correctly to Schedule L lines.
+
+Why this happens:
+  - Company expanded into a new line of business (here: added a delivery fleet).
+  - Accountant refined the chart of accounts (split a broad category into sub-accounts).
+  - New asset class purchased requiring its own depreciation tracking.
+
+New accounts appearing in the 2024 ledger (absent from 2023):
+  1030  Prepaid Expenses              — new current asset
+  1540  Vehicles                      — company purchased $40,000 delivery van
+  1550  Accumulated Depreciation - Vehicles — contra-asset for 1540
+  2030  Line of Credit                — new short-term liability
+  5050  Marketing Expense             — carved out of 5040 (Other Operating Expenses)
+  5060  Vehicle Depreciation Expense  — new expense category
+
+The 2023 files are IDENTICAL to Scenario 01.
+
+Key numbers:
+  2023 ending RE:   $220,000  (same as Scenario 01)
+  2024 net income:  $109,000  (higher revenue, higher expenses from expansion)
+  2024 ending RE:   $329,000
+
+Schedule L mapping for new accounts:
+  1030 Prepaid    → Line 6  (Other Current Assets)
+  1540 Vehicles   → Line 10a (combined with Equipment as depreciable assets)
+  1550 Accum Depr → Line 10b (combined with equipment accumulated depreciation)
+  2030 Line of Credit → Line 17 (notes payable < 1 year)
+
+What the software should do:
+  - Detect new accounts with no prior-year match; list them and their balances.
+  - Ask the user to confirm or adjust the Schedule L line mapping for each new account.
+  - When comparing year-over-year account structure, report what's new vs. what's gone.
+  - Continue the RE rollover once mappings are confirmed; RE arithmetic is unaffected.

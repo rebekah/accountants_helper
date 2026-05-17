@@ -1,0 +1,40 @@
+# rolling-re.service — systemd unit file for rolling_retained_earnings
+#
+# Install:
+#   sudo cp rolling-re.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now rolling-re
+#
+# Then manage with:
+#   sudo systemctl start|stop|restart|status rolling-re
+#   journalctl -u rolling-re -f
+
+[Unit]
+Description=Rolling Retained Earnings API
+After=network.target
+
+[Service]
+# ── Edit these two lines to match your server ────────────────────────────────
+User=www-data
+WorkingDirectory=/opt/rolling_retained_earnings
+
+# Activate the virtualenv and start uvicorn
+ExecStart=/opt/rolling_retained_earnings/.venv/bin/uvicorn src.api:app \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --workers 4
+
+# Restart policy
+Restart=on-failure
+RestartSec=5
+
+# Write logs to journald (view with: journalctl -u rolling-re -f)
+StandardOutput=journal
+StandardError=journal
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

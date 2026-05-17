@@ -1,0 +1,62 @@
+SCENARIO 07 — BOOKKEEPER CHANGEOVER (INCOMPATIBLE LEDGER SCHEMA)
+=================================================================
+Edge case: The company switched bookkeepers between Year 1 and Year 2. The new
+bookkeeper uses different accounting software, which exports a completely different
+CSV schema. The software cannot assume column names, account codes, account type
+labels, or even the debit/credit representation are consistent between years.
+
+Specific differences between 2023 (old bookkeeper) and 2024 (new bookkeeper):
+
+  COLUMN NAMES changed:
+    Old: account_number | account_name  | account_type | debit   | credit
+    New: gl_code        | gl_description| classification| period_debits | period_credits | ending_balance | reporting_currency
+
+  ACCOUNT CODES changed (different numbering scheme):
+    Old: 1010 (Cash)          → New: 100 (Bank)
+    Old: 1020 (AR)            → New: 130 (Trade Receivables)
+    Old: 1500 (Equipment)     → New: 200 (Plant and Equipment)
+    Old: 1510 (Accum Depr)   → New: 201 (Accumulated Depreciation - Plant)
+    Old: 2010 (AP)            → New: 300 (Trade Payables)
+    Old: 2500 (Long-Term Debt)→ New: 350 (Bank Loan)
+    Old: 3010 (Common Stock)  → New: 500 (Share Capital)
+    Old: 3020 (RE - Beginning)→ New: 510 (Retained Earnings B/F)
+    Old: 4010 (Service Revenue)→ New: 600 (Consulting Revenue)
+    Old: 5010 (Salaries)      → New: 700 (Employee Costs)
+    Old: 5020 (Rent)          → New: 710 (Occupancy Costs)
+    Old: 5030 (Depreciation)  → New: 720 (Depreciation Charge)
+    Old: 5040 (Other OpEx)    → New: 730 (Sundry Expenses)
+
+  ACCOUNT TYPE LABELS changed:
+    Old: Asset, Contra-Asset, Liability, Equity, Revenue, Expense
+    New: Current Asset, Fixed Asset, Current Liability,
+         Non-Current Liability, Equity, Revenue, Expense
+
+  SIGN CONVENTION changed for contra-asset:
+    Old: Accumulated Depreciation shown with 0 in debit column, credit > 0
+    New: Accumulated Depreciation shown with ending_balance as a NEGATIVE number
+
+  EXTRA COLUMN added:
+    New: reporting_currency (always "USD" — the software should ignore or handle it)
+
+The underlying financials are IDENTICAL to Scenario 01. Same revenue, expenses,
+net income, and ending RE. The Schedule L files are also identical to Scenario 01.
+
+The 2023 ledger is the old-bookkeeper format (same as Scenario 01 ledger_2023.csv).
+The 2024 ledger is the new-bookkeeper format (completely different schema).
+
+What the software should do:
+  - Detect on load that column names do not match the expected schema.
+  - Prompt the user to map the new columns to canonical fields:
+      gl_code           → account_number
+      gl_description    → account_name
+      classification    → account_type
+      period_debits     → debit
+      period_credits    → credit
+      (ending_balance   → derived / ignored; reporting_currency → ignored)
+  - Prompt the user (or use a config file) to map new account type labels to
+    canonical types so the software knows which accounts are equity/revenue/expense.
+  - After remapping, continue with the normal RE rollover logic.
+  - Save the column mapping to a config file so it doesn't have to be re-entered
+    next time this client's files are processed.
+  - Bonus: attempt fuzzy-match on account names to suggest prior-year equivalents
+    for the user to confirm (e.g., "Bank" ≈ "Cash").

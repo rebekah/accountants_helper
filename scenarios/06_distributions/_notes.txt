@@ -1,0 +1,40 @@
+SCENARIO 06 — SHAREHOLDER DISTRIBUTIONS / DIVIDENDS
+=====================================================
+Edge case: The company paid distributions (S-Corp) or dividends (C-Corp) to
+shareholders during the year. These reduce retained earnings beyond net income
+and appear as a separate equity account in the pre-closing trial balance.
+
+Why this matters:
+  - The RE rollover formula is: Ending RE = Beginning RE + Net Income - Distributions
+  - Software that only looks at net income will compute the wrong ending RE.
+  - Distributions appear as a DEBIT-balance equity account (account 3030) in the
+    trial balance — similar to a contra-equity. They must be subtracted, not added.
+  - On the Schedule L, distributions are already netted into line 25 RE (the balance
+    sheet shows RE after distributions); they do NOT appear as a separate line.
+  - The software must identify distribution accounts in the GL and factor them in
+    before comparing GL ending RE to Schedule L ending RE.
+
+Key numbers:
+  2023 beginning RE:    $120,000
+  2023 net income:      $100,000
+  2023 distributions:   ($40,000)
+  2023 ending RE:       $180,000   ← $220,000 minus distributions
+
+  2024 beginning RE:    $180,000
+  2024 net income:      $116,000
+  2024 distributions:   ($30,000)
+  2024 ending RE:       $266,000
+
+Account 3030 (Distributions Paid) conventions:
+  - Normal balance: DEBIT (reduces equity)
+  - Appears in the trial balance debit column
+  - Closed to Retained Earnings at year-end, so it does NOT appear on the
+    balance sheet (Schedule L line 25 already reflects the net)
+
+What the software should do:
+  - Recognize accounts in the 3000-range with a debit balance as distribution
+    or dividend accounts (or allow the user to tag them explicitly).
+  - Include distributions in the RE reconciliation:
+      Computed ending RE = GL beginning RE + Net Income - Distributions
+  - Verify computed ending RE matches Schedule L line 25 end_of_year.
+  - Warn if any 3030-type accounts are non-zero but were not found in the GL.

@@ -1,0 +1,36 @@
+SCENARIO 02 — TAX ADJUSTMENTS NOT BOOKED BACK TO THE GL
+=========================================================
+Edge case: The tax accountant made adjusting entries on the return that were never
+posted back to the company's general ledger. This is extremely common in practice —
+the client's bookkeeper keeps the books, the tax preparer adjusts the trial balance
+for the return, and those adjustments stay only in the tax software.
+
+Specific adjustments made to the 2023 return (not in books):
+  1. Switched depreciation from straight-line ($10k/yr) to MACRS ($20k yr-1):
+       Extra depreciation on return: $10,000 → reduces taxable income by $10,000
+  2. Capitalized $5,000 repair expense as a leasehold improvement:
+       Removes $5,000 from expenses on return → increases taxable income by $5,000
+  Net impact on return: ($5,000) vs. books — tax income $5,000 lower than book income
+
+  Additional MACRS depreciation in 2024: $8,000 more than book SL depreciation
+  No new capitalizations in 2024.
+
+Key numbers:
+  2023 book ending RE:          $220,000  (same as Scenario 01)
+  2023 Schedule L ending RE:    $215,000  ← $5,000 lower due to tax adjustments
+  2024 book ending RE:          $336,000  (same as Scenario 01)
+  2024 Schedule L ending RE:    $323,000  ← cumulative $13,000 gap
+
+Balance sheet differences (Schedule L vs. books):
+  Equipment gross:   +$5,000  (capitalized repair added to asset)
+  Accumulated depr:  higher   (more MACRS depreciation taken)
+  Net assets:        lower than books (MACRS depr > extra asset capitalized)
+
+The LEDGER files in this scenario are IDENTICAL to Scenario 01.
+Only the Schedule L files differ.
+
+What the software should do:
+  - Detect that Schedule L ending RE ≠ book ending RE in 2023.
+  - Warn that a book-tax difference exists and request a reconciliation note.
+  - Ask whether to roll the BOOK balance or the SCHEDULE L balance into next year.
+  - Track the cumulative book-tax difference so it can be reported.

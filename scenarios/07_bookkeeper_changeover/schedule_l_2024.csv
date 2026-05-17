@@ -1,0 +1,11 @@
+line_number,description,beginning_of_year,end_of_year
+1,Cash,180000,281000
+2a,Accounts Receivable,40000,50000
+10a,Equipment (Depreciable Assets),100000,100000
+10b,Less Accumulated Depreciation,-20000,-30000
+15,Total Assets,300000,401000
+16,Accounts Payable,30000,35000
+20,Long-Term Debt,40000,20000
+22b,Common Stock,10000,10000
+25,Retained Earnings Unappropriated,220000,336000
+28,Total Liabilities and Shareholders Equity,300000,401000

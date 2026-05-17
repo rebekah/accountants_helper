@@ -1,0 +1,14 @@
+gl_code,gl_description,classification,period_debits,period_credits,ending_balance,reporting_currency
+100,Bank,Current Asset,281000,0,281000,USD
+130,Trade Receivables,Current Asset,50000,0,50000,USD
+200,Plant and Equipment,Fixed Asset,100000,0,100000,USD
+201,Accumulated Depreciation - Plant,Fixed Asset,0,30000,-30000,USD
+300,Trade Payables,Current Liability,0,35000,35000,USD
+350,Bank Loan,Non-Current Liability,0,20000,20000,USD
+500,Share Capital,Equity,0,10000,10000,USD
+510,Retained Earnings B/F,Equity,0,220000,220000,USD
+600,Consulting Revenue,Revenue,0,280000,280000,USD
+700,Employee Costs,Expense,110000,0,110000,USD
+710,Occupancy Costs,Expense,24000,0,24000,USD
+720,Depreciation Charge,Expense,10000,0,10000,USD
+730,Sundry Expenses,Expense,20000,0,20000,USD

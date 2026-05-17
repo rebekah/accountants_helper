@@ -1,0 +1,34 @@
+SCENARIO 03 — BEGINNING BALANCE MISMATCH
+=========================================
+Edge case: The Schedule L beginning-of-year RE for Year 2 does not match the
+Schedule L end-of-year RE from Year 1. The books are unaffected.
+
+Why this happens (common causes):
+  - An amended return (1120-X) was filed for Year 1 AFTER Year 2's return was prepared,
+    changing the prior-year balance sheet without updating Year 2's beginning figures.
+  - An IRS examination adjustment to Year 1 was accepted but not reflected in Year 2.
+  - A data-entry error in the tax software when rolling the prior year's ending balances.
+
+Specific mismatch in this scenario:
+  Year 1 (2023) Schedule L ending RE:    $220,000
+  Year 2 (2024) Schedule L beginning RE: $205,000  ← $15,000 lower (unexplained)
+
+  Implied cause: accumulated depreciation on the amended return was $15,000 higher
+  than originally reported, reducing retained earnings by $15,000.
+
+The 2023 ledger and Schedule L are IDENTICAL to Scenario 01 (no issue in Year 1).
+The 2024 ledger is also IDENTICAL to Scenario 01 (books are unaffected by the mismatch).
+Only the 2024 Schedule L has different beginning balances.
+
+Key numbers:
+  2023 Schedule L ending RE:      $220,000
+  2024 Schedule L beginning RE:   $205,000  ← MISMATCH — flag this
+  2024 Schedule L ending RE:      $321,000
+
+What the software should do:
+  - Compare prior-year Schedule L end_of_year RE with current-year beginning_of_year RE.
+  - Raise an error/warning if they differ: "Prior year Schedule L closing RE ($220,000)
+    does not match current year Schedule L opening RE ($205,000). Difference: $15,000.
+    Possible causes: amended return, audit adjustment, or data entry error.
+    Provide a reconciling explanation before proceeding."
+  - Do NOT silently use either number — require the user to choose or explain.
