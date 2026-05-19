@@ -117,20 +117,6 @@
     .drop-label strong { display: block; font-size: 13px; color: #0f172a; margin-bottom: 2px; }
     .drop-filename { font-size: 11px; color: #16a34a; font-weight: 500; margin-top: 4px; }
 
-    /* ── Advanced / column mapping ── */
-    details { border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden; }
-    summary {
-      padding: 10px 14px;
-      font-size: 13px;
-      font-weight: 500;
-      cursor: pointer;
-      background: #f8fafc;
-      color: #475569;
-      list-style: none;
-    }
-    summary::before { content: "▶ "; font-size: 10px; }
-    details[open] summary::before { content: "▼ "; }
-    .details-body { padding: 14px; }
     textarea {
       width: 100%;
       min-height: 90px;
@@ -282,6 +268,52 @@
     }
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ── Print / workpaper ── */
+    #print-header { display: none; }
+    @media print {
+      header { display: none; }
+      main > .card { display: none; }
+      #results-section { display: block !important; }
+      #export-row { display: none !important; }
+      #print-header {
+        display: block;
+        padding: 0 0 16px 0;
+        border-bottom: 2px solid #0f172a;
+        margin-bottom: 20px;
+      }
+      #print-header h2 { font-size: 16px; font-weight: 700; }
+      #print-header p  { font-size: 12px; color: #475569; margin-top: 4px; }
+      .card { border: 1px solid #ccc !important; break-inside: avoid; }
+      .banner, .check-pass, .check-warn, .check-fail {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+    }
+
+    /* ── Preflight status ── */
+    .preflight-analyzing {
+      font-size: 13px;
+      color: #64748b;
+      margin-top: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .preflight-analyzing .spinner {
+      border-top-color: #64748b;
+      border-color: rgba(100,116,139,.3);
+      border-top-color: #64748b;
+    }
+    .preflight-error {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-size: 13px;
+      color: #991b1b;
+      margin-top: 16px;
+    }
+
     /* ── Helpers ── */
     .hidden { display: none !important; }
     .divider { height: 1px; background: #e2e8f0; margin: 16px 0; }
@@ -361,33 +393,35 @@
       </div>
     </div>
 
-    <!-- Advanced: column mapping -->
-    <div style="margin-top:16px;">
-      <details id="advanced-details">
-        <summary>Advanced — non-standard column names (bookkeeper changeover)</summary>
-        <div class="details-body">
-          <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">
-            Column Mapping (JSON)
-          </label>
-          <textarea id="column-mapping-json" placeholder='{"account_number":"gl_code","account_name":"gl_description","account_type":"classification","debit":"period_debits","credit":"period_credits"}'></textarea>
-          <p class="help-text">
-            Supply this when the current-year ledger uses different column names.
-            Use <strong>Detect Schema</strong> to auto-generate a suggestion.
-          </p>
-          <div style="margin-top:10px;display:flex;gap:8px;">
-            <button class="btn btn-ghost" style="font-size:12px;padding:6px 14px;" onclick="detectSchema()">Detect Schema</button>
-          </div>
-          <div id="schema-result" style="margin-top:10px;font-size:12px;font-family:monospace;white-space:pre-wrap;background:#f8fafc;padding:10px;border-radius:6px;border:1px solid #e2e8f0;" class="hidden"></div>
+    <!-- Pre-roll: account mapping review -->
+    <div id="preflight-analyzing" class="preflight-analyzing hidden">
+      <div class="spinner" style="border-color:rgba(100,116,139,.3);border-top-color:#64748b;"></div>
+      Analyzing accounts…
+    </div>
+    <div id="preflight-error" class="preflight-error hidden"></div>
 
-          <div style="margin-top:14px;">
-            <label style="font-size:12px;font-weight:600;display:block;margin-bottom:4px;">
-              Account Type Mapping (JSON, optional)
-            </label>
-            <textarea id="type-mapping-json" placeholder='{"asset":["current asset","fixed asset","bank"],"liability":["current liability","non-current liability"]}'></textarea>
-            <p class="help-text">Override when the bookkeeper uses different account-type labels.</p>
-          </div>
+    <div id="pre-roll-mapping-card" class="hidden" style="margin-top:16px;border:1px solid #e2e8f0;border-radius:10px;padding:24px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+        <div class="section-head" style="margin-bottom:0;">Account mapping</div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" id="pre-confirm-all-btn" style="font-size:12px;padding:6px 14px;" onclick="confirmAllMappings()">Confirm all</button>
         </div>
-      </details>
+      </div>
+      <p style="font-size:13px;color:#475569;margin-bottom:14px;line-height:1.5;">
+        These accounts appear in the current year but not the prior year. Suggested matches are based on name similarity — confirm or dismiss each row before rolling.
+      </p>
+      <table class="re-table" id="mapping-table">
+        <thead>
+          <tr>
+            <th id="th-new-code">Current year code</th>
+            <th id="th-new-name">Current year name</th>
+            <th>Type</th>
+            <th id="th-prior-match">Suggested prior year match</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="mapping-tbody"></tbody>
+      </table>
     </div>
 
     <div class="submit-row">
@@ -401,8 +435,23 @@
   <!-- ── Results ── -->
   <div id="results-section" class="hidden">
 
+    <!-- Print-only header -->
+    <div id="print-header">
+      <h2>Retained Earnings Rollover Workpaper</h2>
+      <p>Prepared: <span id="print-date"></span></p>
+    </div>
+
     <!-- Status banner -->
     <div id="status-banner" class="banner"></div>
+
+    <!-- Export actions -->
+    <div id="export-row" class="card" style="padding:14px 24px;">
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-ghost" onclick="printWorkpaper()">Print / Save as PDF</button>
+        <button class="btn btn-ghost" onclick="exportCSV()">Export RE Summary (CSV)</button>
+        <button class="btn btn-ghost" id="export-mapping-btn" style="display:none;" onclick="exportMappingCSV()">Export Account Mapping (CSV)</button>
+      </div>
+    </div>
 
     <!-- RE Summary -->
     <div class="card" id="summary-card">
@@ -417,6 +466,18 @@
         </thead>
         <tbody id="re-tbody"></tbody>
       </table>
+    </div>
+
+    <!-- Account changes narrative -->
+    <div class="card hidden" id="account-changes-card">
+      <div class="card-title">Account changes</div>
+      <div id="account-changes-body"></div>
+    </div>
+
+    <!-- Suggested adjustments -->
+    <div class="card hidden" id="suggested-adjustments-card">
+      <div class="card-title">Suggested adjustments</div>
+      <div id="suggested-adjustments-body"></div>
     </div>
 
     <!-- Checks -->
@@ -465,6 +526,7 @@ function handleFile(input, key) {
     csvStore[key] = e.target.result;
     document.getElementById(`fn-${key.replace('_','-').replace('_','-')}`).textContent = file.name;
     document.getElementById(`dz-${key.replace(/_/g,'-')}`).classList.add('loaded');
+    maybeRunPreflight();
   };
   reader.readAsText(file);
 }
@@ -507,12 +569,16 @@ document.querySelectorAll('.drop-zone').forEach(zone => {
       csvStore[key] = ev.target.result;
       document.getElementById(fnId(key)).textContent = file.name;
       zone.classList.add('loaded');
+      maybeRunPreflight();
     };
     fr.readAsText(file);
   });
 });
 
 let lastRollBody = null;
+let lastResult = null;
+let preflightColumnMapping = null;
+let preflightYears = { prior: null, current: null };
 
 // ── Scenario loading ───────────────────────────────────────────────────────
 async function loadScenarioList() {
@@ -573,60 +639,72 @@ async function loadScenario() {
     document.getElementById('prior-year').value = 2023;
     document.getElementById('current-year').value = 2024;
 
-    // For scenario 07 (bookkeeper changeover), pre-fill the column mapping
-    if (name.startsWith('07')) {
-      document.getElementById('advanced-details').open = true;
-      document.getElementById('column-mapping-json').value = JSON.stringify({
-        account_number: "gl_code",
-        account_name: "gl_description",
-        account_type: "classification",
-        debit: "period_debits",
-        credit: "period_credits"
-      }, null, 2);
-      document.getElementById('type-mapping-json').value = JSON.stringify({
-        asset: ["current asset", "fixed asset", "bank"],
-        liability: ["current liability", "non-current liability"],
-        equity: ["equity"],
-        revenue: ["revenue"],
-        expense: ["expense"]
-      }, null, 2);
-    } else {
-      document.getElementById('column-mapping-json').value = '';
-      document.getElementById('type-mapping-json').value = '';
-    }
+    await runPreflight();
 
   } catch(e) { alert('Failed to load scenario: ' + e.message); }
 }
 
-// ── Schema detection ───────────────────────────────────────────────────────
-async function detectSchema() {
-  const csv = csvStore['current_ledger'];
-  if (!csv) { alert('Load or upload a current-year ledger first.'); return; }
 
-  const res = await fetch('/api/detect-schema', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ csv_content: csv }),
-  });
-  const data = await res.json();
-  const el = document.getElementById('schema-result');
-  el.classList.remove('hidden');
+// ── Preflight ──────────────────────────────────────────────────────────────
+function maybeRunPreflight() {
+  if (KEYS.every(k => csvStore[k])) runPreflight();
+}
 
-  if (data.is_canonical) {
-    el.textContent = '✓ Schema is canonical — no column mapping needed.';
-  } else {
-    el.textContent =
-      'Detected columns: ' + data.detected_columns.join(', ') + '\n\n' +
-      'Suggested mapping:\n' + JSON.stringify(data.suggested_mapping, null, 2) +
-      (data.missing_canonical.length
-        ? '\n\nCould not map: ' + data.missing_canonical.join(', ')
-        : '');
-    // Auto-fill the mapping textarea
-    if (Object.keys(data.suggested_mapping).length > 0) {
-      document.getElementById('column-mapping-json').value =
-        JSON.stringify(data.suggested_mapping, null, 2);
+async function runPreflight() {
+  preflightColumnMapping = null;
+  document.getElementById('pre-roll-mapping-card').classList.add('hidden');
+  document.getElementById('preflight-error').classList.add('hidden');
+  document.getElementById('preflight-analyzing').classList.remove('hidden');
+  updateRollBtnState();
+
+  try {
+    const res = await fetch('/api/preflight', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        prior_ledger_csv: csvStore['prior_ledger'],
+        current_ledger_csv: csvStore['current_ledger'],
+      }),
+    });
+    const data = await res.json();
+
+    document.getElementById('preflight-analyzing').classList.add('hidden');
+
+    if (data.error) {
+      document.getElementById('preflight-error').textContent = data.error;
+      document.getElementById('preflight-error').classList.remove('hidden');
+      updateRollBtnState();
+      return;
     }
+
+    preflightColumnMapping = data.column_mapping || null;
+    preflightYears = {
+      prior:   parseInt(document.getElementById('prior-year').value) || null,
+      current: parseInt(document.getElementById('current-year').value) || null,
+    };
+
+    if (data.new_accounts && data.new_accounts.length > 0) {
+      renderAccountMapping(data.new_accounts);
+      document.getElementById('pre-roll-mapping-card').classList.remove('hidden');
+    }
+
+    updateRollBtnState();
+  } catch(e) {
+    document.getElementById('preflight-analyzing').classList.add('hidden');
+    document.getElementById('preflight-error').textContent = 'Preflight failed: ' + e.message;
+    document.getElementById('preflight-error').classList.remove('hidden');
+    updateRollBtnState();
   }
+}
+
+function updateRollBtnState() {
+  const btn = document.getElementById('submit-btn');
+  const analyzing = !document.getElementById('preflight-analyzing').classList.contains('hidden');
+  const hasError   = !document.getElementById('preflight-error').classList.contains('hidden');
+  const allFiles   = KEYS.every(k => csvStore[k]);
+  const cardVisible = !document.getElementById('pre-roll-mapping-card').classList.contains('hidden');
+  const allReviewed = !cardVisible || mappingState.every(r => r.status !== 'pending');
+  btn.disabled = analyzing || hasError || !allFiles || !allReviewed;
 }
 
 // ── Submit ─────────────────────────────────────────────────────────────────
@@ -644,19 +722,15 @@ async function submitRoll() {
   btn.innerHTML = '<div class="spinner"></div> Processing…';
   loadTxt.classList.remove('hidden');
 
-  const colMapRaw = document.getElementById('column-mapping-json').value.trim();
-  const typMapRaw = document.getElementById('type-mapping-json').value.trim();
-
   const body = {
-    prior_ledger_csv:     csvStore['prior_ledger'],
-    prior_schedule_l_csv: csvStore['prior_schedule_l'],
-    current_ledger_csv:   csvStore['current_ledger'],
+    prior_ledger_csv:       csvStore['prior_ledger'],
+    prior_schedule_l_csv:   csvStore['prior_schedule_l'],
+    current_ledger_csv:     csvStore['current_ledger'],
     current_schedule_l_csv: csvStore['current_schedule_l'],
     prior_year:    parseInt(document.getElementById('prior-year').value),
     current_year:  parseInt(document.getElementById('current-year').value),
   };
-  if (colMapRaw) { try { body.column_mapping = JSON.parse(colMapRaw); } catch(e) { alert('Column mapping JSON is invalid.'); resetBtn(btn, loadTxt); return; } }
-  if (typMapRaw) { try { body.account_type_mapping = JSON.parse(typMapRaw); } catch(e) { alert('Account type mapping JSON is invalid.'); resetBtn(btn, loadTxt); return; } }
+  if (preflightColumnMapping) body.column_mapping = preflightColumnMapping;
 
   lastRollBody = body;
 
@@ -683,13 +757,21 @@ function resetBtn(btn, loadTxt) {
 
 // ── Display results ────────────────────────────────────────────────────────
 function displayResults(data) {
+  lastResult = data;
   const section = document.getElementById('results-section');
   section.classList.remove('hidden');
   section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
+  const mappingBtn = document.getElementById('export-mapping-btn');
+  if (mappingBtn) mappingBtn.style.display = mappingState.length ? '' : 'none';
+
   renderBanner(data);
   if (data.result) renderSummary(data.result);
-  renderChecks(data.checks || []);
+  const checks = (data.checks || []).map(ch =>
+    ch.check === 'new_accounts' ? { ...ch, detail: {} } : ch
+  );
+  renderChecks(checks);
+  renderAccountChanges();
   renderRequiredInputs(data.required_inputs || []);
   renderList(data.warnings || [], 'warnings-card', 'warnings-list', 'msg-warn');
   renderList(data.errors   || [], 'errors-card',   'errors-list',   'msg-error');
@@ -769,6 +851,126 @@ function renderChecks(checks) {
   }).join('');
 }
 
+// ── Account changes + suggested adjustments ────────────────────────────────
+function renderAccountChanges() {
+  const changesCard = document.getElementById('account-changes-card');
+  const adjCard     = document.getElementById('suggested-adjustments-card');
+  changesCard.classList.add('hidden');
+  adjCard.classList.add('hidden');
+
+  if (!mappingState.length) return;
+
+  // Sync any in-progress edits from DOM
+  document.querySelectorAll('#mapping-tbody tr').forEach((tr, i) => {
+    const input = tr.querySelector('input[type=text]');
+    if (input && mappingState[i]) mappingState[i].suggested_name = input.value;
+  });
+
+  const py = preflightYears.prior   || 'prior year';
+  const cy = preflightYears.current || 'current year';
+  const confirmed = mappingState.filter(r => r.status === 'confirmed' && r.suggested_name);
+  const dismissed = mappingState.filter(r => r.status !== 'confirmed' || !r.suggested_name);
+
+  // ── Account changes card ───────────────────────────────────────────────────
+  let changesHtml = '';
+
+  if (confirmed.length) {
+    changesHtml += `
+      <div class="section-head">Renamed / matched</div>
+      <p style="font-size:13px;color:#475569;margin-bottom:12px;line-height:1.5;">
+        These accounts have been matched to prior year equivalents. No journal entries required.
+      </p>
+      <table class="re-table" style="margin-bottom:${dismissed.length ? 24 : 0}px;">
+        <thead><tr><th>${py} account</th><th>${cy} account</th><th>Type</th></tr></thead>
+        <tbody>${confirmed.map(r => `
+          <tr>
+            <td>${r.suggested_name}</td>
+            <td>${r.account_name}</td>
+            <td><span style="font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;">${r.account_type}</span></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  if (dismissed.length) {
+    changesHtml += `
+      <div class="section-head">New accounts</div>
+      <p style="font-size:13px;color:#475569;margin-bottom:12px;line-height:1.5;">
+        These accounts appear for the first time in ${cy}.
+      </p>
+      <table class="re-table">
+        <thead><tr><th>Account</th><th>Type</th><th class="mono">${cy} activity</th></tr></thead>
+        <tbody>${dismissed.map(r => {
+          const bal = r.net_balance || 0;
+          const activity = r.account_type === 'expense' ? Math.abs(bal) : bal;
+          return `<tr>
+            <td>${r.account_name} <span style="font-size:11px;color:#94a3b8;font-family:monospace;">${r.account_number}</span></td>
+            <td><span style="font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;">${r.account_type}</span></td>
+            ${fmtCell(activity)}
+          </tr>`;
+        }).join('')}
+        </tbody>
+      </table>`;
+  }
+
+  if (changesHtml) {
+    document.getElementById('account-changes-body').innerHTML = changesHtml;
+    changesCard.classList.remove('hidden');
+  }
+
+  // ── Suggested adjustments card ─────────────────────────────────────────────
+  let adjItems = [];
+
+  if (confirmed.length) {
+    adjItems.push(`
+      <div style="border:1px solid #bbf7d0;background:#f0fdf4;border-radius:8px;padding:14px 16px;margin-bottom:10px;">
+        <div style="font-weight:600;font-size:13px;color:#15803d;margin-bottom:6px;">✓ Renamed accounts — no entries required</div>
+        <p style="font-size:12px;color:#166534;line-height:1.6;margin:0;">
+          ${confirmed.map(r => `<strong>${r.suggested_name}</strong> → <strong>${r.account_name}</strong>`).join(' &nbsp;·&nbsp; ')}
+        </p>
+      </div>`);
+  }
+
+  dismissed.filter(r => r.account_type === 'equity').forEach(r => {
+    const bal = r.net_balance || 0;
+    const isCredit = bal >= 0;
+    const amount = fmt(Math.abs(bal));
+    adjItems.push(`
+      <div style="border:1.5px solid #fde68a;background:#fffbeb;border-radius:8px;padding:14px 16px;margin-bottom:10px;">
+        <div style="font-weight:600;font-size:13px;color:#92400e;margin-bottom:6px;">⚠ Opening balance required — ${r.account_name}</div>
+        <p style="font-size:12px;color:#78350f;line-height:1.5;margin-bottom:10px;">
+          New equity account with a ${isCredit ? 'credit' : 'debit'} balance of ${amount}.
+          Post an opening balance entry if this balance was not established during ${cy}.
+        </p>
+        <div style="font-family:monospace;font-size:12px;background:rgba(0,0,0,.04);padding:10px 12px;border-radius:6px;line-height:2;">
+          ${isCredit
+            ? `Dr. &nbsp;[Counterpart account] &nbsp;&nbsp; ${amount}<br>Cr. &nbsp;${r.account_name} &nbsp;&nbsp; ${amount}`
+            : `Dr. &nbsp;${r.account_name} &nbsp;&nbsp; ${amount}<br>Cr. &nbsp;[Counterpart account] &nbsp;&nbsp; ${amount}`}
+        </div>
+      </div>`);
+  });
+
+  dismissed.filter(r => r.account_type !== 'equity').forEach(r => {
+    const bal = r.net_balance || 0;
+    const activity = r.account_type === 'expense' ? Math.abs(bal) : bal;
+    adjItems.push(`
+      <div style="border:1px solid #e2e8f0;background:#f8fafc;border-radius:8px;padding:14px 16px;margin-bottom:10px;">
+        <div style="font-weight:600;font-size:13px;color:#334155;margin-bottom:4px;">
+          ℹ ${r.account_name} <span style="font-weight:400;color:#64748b;">(${r.account_type})</span>
+        </div>
+        <p style="font-size:12px;color:#475569;line-height:1.5;margin:0;">
+          ${fmt(activity)} of ${cy} activity. No prior year comparative available —
+          verify no ${py} activity was coded to a different account. No journal entry required.
+        </p>
+      </div>`);
+  });
+
+  if (adjItems.length) {
+    document.getElementById('suggested-adjustments-body').innerHTML = adjItems.join('');
+    adjCard.classList.remove('hidden');
+  }
+}
+
 let pendingInputFields = [];
 
 function renderRequiredInputs(inputs) {
@@ -840,6 +1042,147 @@ function renderList(items, cardId, listId, itemCls) {
   if (!items.length) { card.classList.add('hidden'); return; }
   card.classList.remove('hidden');
   list.innerHTML = items.map(m => `<li class="message-list-item ${itemCls}">${m}</li>`).join('');
+}
+
+// ── Account mapping table ──────────────────────────────────────────────────
+let mappingState = [];
+
+function renderAccountMapping(newAccounts) {
+  if (preflightYears.current) {
+    document.getElementById('th-new-code').textContent  = preflightYears.current + ' code';
+    document.getElementById('th-new-name').textContent  = preflightYears.current + ' name';
+    document.getElementById('th-prior-match').textContent = 'Suggested ' + (preflightYears.prior || 'prior year') + ' match';
+  }
+
+  mappingState = newAccounts.map(a => ({ ...a, status: 'pending' }));
+  renderMappingRows();
+  updateConfirmAllBtn();
+}
+
+function renderMappingRows() {
+  document.getElementById('mapping-tbody').innerHTML = mappingState.map((row, i) => {
+    const matchCell = `<input type="text" value="${(row.suggested_name || '').replace(/"/g, '&quot;')}"
+      oninput="updateMatch(${i}, this.value)"
+      placeholder="No match found"
+      style="width:100%;padding:4px 7px;border:1px solid #e2e8f0;border-radius:5px;font-size:13px;background:${row.status === 'dismissed' ? 'transparent' : 'white'};">`;
+    const rowBg = row.status === 'confirmed' ? 'background:#f0fdf4;'
+                : row.status === 'dismissed' ? 'background:#f8fafc;opacity:0.55;'
+                : '';
+    const actions = row.status === 'confirmed'
+      ? `<button class="option-btn selected" onclick="setMapping(${i},'pending')" style="font-size:11px;padding:4px 10px;">✓ Confirmed</button>`
+      : row.status === 'dismissed'
+      ? `<button class="option-btn" onclick="setMapping(${i},'pending')" style="font-size:11px;padding:4px 10px;">Dismissed</button>`
+      : `<span style="display:flex;gap:6px;">
+           <button class="option-btn" onclick="setMapping(${i},'confirmed')" style="font-size:11px;padding:4px 10px;">Confirm</button>
+           <button class="option-btn" onclick="setMapping(${i},'dismissed')" style="font-size:11px;padding:4px 10px;">Dismiss</button>
+         </span>`;
+    return `
+      <tr style="${rowBg}">
+        <td class="mono">${row.account_number}</td>
+        <td>${row.account_name}</td>
+        <td><span style="font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;">${row.account_type}</span></td>
+        <td>${matchCell}</td>
+        <td>${actions}</td>
+      </tr>`;
+  }).join('');
+}
+
+function setMapping(i, status) {
+  mappingState[i].status = status;
+  renderMappingRows();
+  updateConfirmAllBtn();
+}
+
+function updateMatch(i, value) {
+  mappingState[i].suggested_name = value;
+}
+
+function confirmAllMappings() {
+  mappingState.forEach(row => { if (row.status === 'pending') row.status = 'confirmed'; });
+  renderMappingRows();
+  updateConfirmAllBtn();
+}
+
+function updateConfirmAllBtn() {
+  const btn = document.getElementById('pre-confirm-all-btn');
+  if (!btn) return;
+  const anyPending = mappingState.some(r => r.status === 'pending');
+  btn.disabled = !anyPending;
+  btn.textContent = anyPending ? 'Confirm all' : 'All confirmed';
+  updateRollBtnState();
+}
+
+function exportMappingCSV() {
+  if (!mappingState.length) return;
+  const py = preflightYears.prior   || 'prior';
+  const cy = preflightYears.current || 'current';
+
+  // Sync any in-progress edits from DOM inputs before exporting
+  document.querySelectorAll('#mapping-tbody tr').forEach((tr, i) => {
+    const input = tr.querySelector('input[type=text]');
+    if (input && mappingState[i]) mappingState[i].suggested_name = input.value;
+  });
+
+  const header = [cy + '_code', cy + '_name', 'type', py + '_match'].join(',');
+  const rows = mappingState.map(row => [
+    row.account_number,
+    `"${row.account_name}"`,
+    row.account_type,
+    row.suggested_name ? `"${row.suggested_name}"` : '',
+  ].join(','));
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `account_mapping_${py}_${cy}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── Print workpaper ────────────────────────────────────────────────────────
+function printWorkpaper() {
+  document.getElementById('print-date').textContent = new Date().toLocaleDateString('en-US', {
+    year: 'numeric', month: 'long', day: 'numeric'
+  });
+  window.print();
+}
+
+// ── CSV export ─────────────────────────────────────────────────────────────
+function exportCSV() {
+  if (!lastResult || !lastResult.result) {
+    alert('Run the roll first to generate results.');
+    return;
+  }
+  const r = lastResult.result;
+  const rows = [
+    ['Item', r.prior_year, r.current_year],
+    ['Beginning retained earnings', r.prior_beginning_re, r.current_beginning_re_book],
+    ['Net income / (loss)', r.prior_net_income, r.current_net_income],
+  ];
+  if (r.has_distributions) {
+    rows.push(['Distributions / dividends', -r.prior_distributions, -r.current_distributions]);
+  }
+  rows.push(
+    ['Computed ending RE', r.prior_computed_ending_re, r.current_computed_ending_re],
+    ['Schedule L ending RE', r.prior_schedule_l_re, r.current_schedule_l_re],
+  );
+  if (r.has_book_schedule_l_difference) {
+    rows.push(['Book vs Schedule L difference', r.prior_book_schedule_l_diff, r.current_book_schedule_l_diff]);
+  }
+  rows.push(['', '', ''], ['Status', lastResult.status, '']);
+
+  const csv = rows.map(row =>
+    row.map(v => (typeof v === 'string' && v.includes(',')) ? `"${v}"` : v).join(',')
+  ).join('\n');
+
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `retained_earnings_${r.prior_year}_${r.current_year}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────
