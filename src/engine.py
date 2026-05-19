@@ -1,6 +1,7 @@
 """Core retained-earnings rolling logic and edge-case checks."""
 from __future__ import annotations
 
+import difflib
 import re
 from typing import Any, Dict, List, Optional
 
@@ -81,11 +82,68 @@ def _schedule_l_re(sl: pd.DataFrame, col: str) -> float:
 def _new_accounts(prior: pd.DataFrame, current: pd.DataFrame) -> List[Dict[str, Any]]:
     prior_nums = set(prior["account_number"])
     prior_names = set(prior["account_name"].str.lower())
+    RE_RELEVANT = {"revenue", "expense", "equity"}
     new = current[
         ~current["account_number"].isin(prior_nums)
         & ~current["account_name"].str.lower().isin(prior_names)
+        & current["account_type"].isin(RE_RELEVANT)
     ]
-    return new[["account_number", "account_name", "account_type"]].to_dict(orient="records")
+
+    result = []
+    for _, row in new.iterrows():
+        acct_type = row["account_type"]
+        # Prefer same-type matches; only fall back to any-type if nothing found
+        same_type_names = prior.loc[
+            prior["account_type"] == acct_type, "account_name"
+        ].str.lower().tolist()
+        all_names = prior["account_name"].str.lower().tolist()
+
+        matched_name = None
+        for candidate_list in (same_type_names, all_names):
+            hits = difflib.get_close_matches(
+                row["account_name"].lower(), candidate_list, n=1, cutoff=0.4
+            )
+            if hits:
+                matched_name = hits[0]
+                break
+
+        net_balance = round(float(row["credit"]) - float(row["debit"]), 2)
+        if matched_name:
+            match_row = prior[prior["account_name"].str.lower() == matched_name].iloc[0]
+            confidence = difflib.SequenceMatcher(
+                None, row["account_name"].lower(), matched_name
+            ).ratio()
+            # Discard cross-type matches with low confidence — likely false positives
+            if match_row["account_type"] != acct_type and confidence < 0.55:
+                matched_name = None
+
+        if matched_name:
+            match_row = prior[prior["account_name"].str.lower() == matched_name].iloc[0]
+            confidence = difflib.SequenceMatcher(
+                None, row["account_name"].lower(), matched_name
+            ).ratio()
+            result.append({
+                "account_number": row["account_number"],
+                "account_name": row["account_name"],
+                "account_type": acct_type,
+                "net_balance": net_balance,
+                "suggested_number": match_row["account_number"],
+                "suggested_name": match_row["account_name"],
+                "suggested_type": match_row["account_type"],
+                "confidence": round(confidence, 2),
+            })
+        else:
+            result.append({
+                "account_number": row["account_number"],
+                "account_name": row["account_name"],
+                "account_type": acct_type,
+                "net_balance": net_balance,
+                "suggested_number": None,
+                "suggested_name": None,
+                "suggested_type": None,
+                "confidence": 0.0,
+            })
+    return result
 
 
 def _fmt(v: float) -> str:

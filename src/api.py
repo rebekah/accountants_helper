@@ -20,13 +20,15 @@ from src.models import (
     AccountTypeMapping,
     ColumnMapping,
     DetectSchemaRequest,
+    PreflightRequest,
+    PreflightResponse,
     RequiredInput,
     RollJsonRequest,
     RollResponse,
     SchemaDetection,
 )
 from src.reader import detect_schema, normalize_ledger, normalize_schedule_l
-from src.engine import roll_retained_earnings
+from src.engine import roll_retained_earnings, _new_accounts
 
 SCENARIOS_DIR = pathlib.Path(__file__).parent.parent / "scenarios"
 UI_DIR = pathlib.Path(__file__).parent.parent / "ui"
@@ -183,6 +185,43 @@ def get_scenario(name: str):
             key = fname.replace(".", "_").replace("-", "_")
             result[key] = fpath.read_text()
     return result
+
+
+@app.post("/api/preflight", response_model=PreflightResponse, tags=["preflight"])
+def preflight(request: PreflightRequest):
+    """Detect schema and identify new accounts before running the full rollover.
+
+    Call this after all four files are loaded. Returns the auto-detected
+    column_mapping (or null if the schema is canonical) and new_accounts so the
+    UI can present the account-mapping review step before the roll is submitted.
+    """
+    col_map: Optional[ColumnMapping] = None
+
+    detection = detect_schema(request.current_ledger_csv)
+    if not detection.is_canonical and detection.suggested_mapping:
+        col_map = ColumnMapping(**detection.suggested_mapping)
+
+    try:
+        prior_ledger, _ = normalize_ledger(
+            request.prior_ledger_csv,
+            account_type_mapping=request.account_type_mapping,
+        )
+    except ValueError as e:
+        return PreflightResponse(error=f"Prior-year ledger: {e}")
+
+    try:
+        current_ledger, _ = normalize_ledger(
+            request.current_ledger_csv,
+            col_map,
+            request.account_type_mapping,
+        )
+    except ValueError as e:
+        return PreflightResponse(error=f"Current-year ledger: {e}")
+
+    return PreflightResponse(
+        new_accounts=_new_accounts(prior_ledger, current_ledger),
+        column_mapping=col_map,
+    )
 
 
 @app.post("/api/detect-schema", response_model=SchemaDetection, tags=["schema"])

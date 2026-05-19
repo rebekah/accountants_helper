@@ -147,3 +147,15 @@ class RollJsonRequest(BaseModel):
 
 class DetectSchemaRequest(BaseModel):
     csv_content: str
+
+
+class PreflightRequest(BaseModel):
+    prior_ledger_csv: str
+    current_ledger_csv: str
+    account_type_mapping: Optional[AccountTypeMapping] = None
+
+
+class PreflightResponse(BaseModel):
+    new_accounts: List[Dict[str, Any]] = []
+    column_mapping: Optional[ColumnMapping] = None
+    error: Optional[str] = None

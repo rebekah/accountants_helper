@@ -22,6 +22,32 @@ from src.models import AccountTypeMapping, ColumnMapping, SchemaDetection
 CANONICAL_LEDGER_COLS = {"account_number", "account_name", "account_type", "debit", "credit"}
 CANONICAL_SL_COLS = {"line_number", "description", "beginning_of_year", "end_of_year"}
 
+# Aliases for common GL/ERP export column names that are semantically correct
+# but lexically too dissimilar for fuzzy matching to catch.
+_COLUMN_ALIASES: dict[str, str] = {
+    # account_number
+    "gl_code": "account_number", "gl code": "account_number",
+    "glcode": "account_number", "code": "account_number",
+    "acct": "account_number", "acct_no": "account_number",
+    "acct_num": "account_number", "account_no": "account_number",
+    "account_id": "account_number", "acct_id": "account_number",
+    # account_name
+    "gl_description": "account_name", "gl description": "account_name",
+    "gldescription": "account_name", "description": "account_name",
+    "account_description": "account_name", "acct_name": "account_name",
+    "account_label": "account_name",
+    # account_type
+    "classification": "account_type", "class": "account_type",
+    "category": "account_type", "acct_type": "account_type",
+    "account_class": "account_type", "type": "account_type",
+    # debit
+    "period_debits": "debit", "debits": "debit", "dr": "debit",
+    "debit_amount": "debit", "debit_balance": "debit",
+    # credit
+    "period_credits": "credit", "credits": "credit", "cr": "credit",
+    "credit_amount": "credit", "credit_balance": "credit",
+}
+
 
 def detect_schema(content: str) -> SchemaDetection:
     """Inspect a ledger CSV and report whether it matches the canonical schema.
@@ -37,19 +63,25 @@ def detect_schema(content: str) -> SchemaDetection:
 
     suggested: dict[str, str] = {}
     for canonical in CANONICAL_LEDGER_COLS:
-        # Try exact match first (case-insensitive)
+        # 1. Exact match (case-insensitive)
         for orig, low in zip(actual, actual_lower):
             if low == canonical:
                 suggested[canonical] = orig
                 break
         else:
-            # Fuzzy fallback
-            matches = difflib.get_close_matches(
-                canonical, actual_lower, n=1, cutoff=0.5
-            )
-            if matches:
-                orig = actual[actual_lower.index(matches[0])]
-                suggested[canonical] = orig
+            # 2. Known-alias lookup
+            for orig, low in zip(actual, actual_lower):
+                if _COLUMN_ALIASES.get(low) == canonical:
+                    suggested[canonical] = orig
+                    break
+            else:
+                # 3. Fuzzy fallback
+                matches = difflib.get_close_matches(
+                    canonical, actual_lower, n=1, cutoff=0.5
+                )
+                if matches:
+                    orig = actual[actual_lower.index(matches[0])]
+                    suggested[canonical] = orig
 
     missing = [c for c in CANONICAL_LEDGER_COLS if c not in suggested]
 
@@ -64,6 +96,7 @@ def detect_schema(content: str) -> SchemaDetection:
 def _build_type_lookup(mapping: AccountTypeMapping) -> Dict[str, str]:
     lookup: dict[str, str] = {}
     for canonical, variants in mapping.model_dump().items():
+        lookup[canonical] = canonical  # canonical name always resolves to itself
         for v in variants:
             lookup[v.strip().lower()] = canonical
     return lookup
