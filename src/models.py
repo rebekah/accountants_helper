@@ -159,3 +159,65 @@ class PreflightResponse(BaseModel):
     new_accounts: List[Dict[str, Any]] = []
     column_mapping: Optional[ColumnMapping] = None
     error: Optional[str] = None
+
+
+# ── Analysis models ───────────────────────────────────────────────────────────
+
+class SuggestedEntry(BaseModel):
+    """A suggested adjusting journal entry."""
+    description: str
+    debit_account: str
+    credit_account: str
+    amount: float
+    rationale: str
+    source: str = "deterministic"  # "deterministic" | "llm"
+
+
+class BridgeAnalysis(BaseModel):
+    """Full retained-earnings bridge from the prior year Schedule L to the current year GL."""
+    prior_year: int
+    prior_beg_re: float
+    prior_net_income: float
+    prior_distributions: float
+    prior_book_ending_re: float
+    prior_schedule_l_re: float
+    prior_book_tax_diff: float           # book − Schedule L (positive = book higher)
+
+    current_year: int
+    current_beg_re_book: float           # what the GL currently shows
+    current_expected_beg_re: float       # what it should be (prior Schedule L ending RE)
+    current_beg_adjustment: float        # expected − actual (positive = need to credit RE)
+    current_net_income: float
+    current_distributions: float
+    current_projected_ending_re: float   # after all adjustments
+
+    suggested_entries: List[SuggestedEntry] = []
+    assumptions: List[str] = []
+    new_accounts: List[Dict[str, Any]] = []
+    named_adjustment_types: List[str] = []
+    confidence: Optional[str] = None
+    llm_narrative: Optional[str] = None
+
+
+class AnalysisResponse(BaseModel):
+    """Result of the autonomous bridge analysis."""
+    status: Literal["ok", "error"]
+    bridge: Optional[BridgeAnalysis] = None
+    errors: List[str] = []
+
+
+class AnalyzeRequest(BaseModel):
+    """Request body for POST /api/analyze.
+
+    Only three CSVs are required — prior year pair plus the current year ledger.
+    The current year Schedule L does not exist yet; this endpoint tells you what
+    adjustments are needed before you can produce it.
+    """
+    prior_ledger_csv: str
+    prior_schedule_l_csv: str
+    current_ledger_csv: str
+    prior_year: int = 2023
+    current_year: int = 2024
+    entity_name: Optional[str] = None
+    column_mapping: Optional[ColumnMapping] = None
+    account_type_mapping: Optional[AccountTypeMapping] = None

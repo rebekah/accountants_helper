@@ -258,6 +258,56 @@
     .msg-warn { background: #fffbeb; border-left: 3px solid #f59e0b; color: #78350f; }
     .msg-error { background: #fef2f2; border-left: 3px solid #ef4444; color: #7f1d1d; }
 
+    /* ── Analysis section ── */
+    .narrative-text {
+      font-size: 13px;
+      line-height: 1.75;
+      color: #1e293b;
+      white-space: pre-wrap;
+    }
+    .assumption-list { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+    .assumption-list li {
+      font-size: 13px;
+      color: #475569;
+      line-height: 1.5;
+      padding: 8px 12px;
+      background: #f8fafc;
+      border-left: 3px solid #94a3b8;
+      border-radius: 0 6px 6px 0;
+    }
+    .entry-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .entry-table th {
+      text-align: left;
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .05em;
+      color: #64748b;
+      background: #f8fafc;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .entry-table td { padding: 10px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+    .entry-table tr:last-child td { border-bottom: none; }
+    .entry-source-llm { font-size: 10px; color: #7c3aed; background: #f5f3ff;
+                        padding: 1px 6px; border-radius: 4px; font-weight: 600; }
+    .entry-source-det { font-size: 10px; color: #1d4ed8; background: #eff6ff;
+                        padding: 1px 6px; border-radius: 4px; font-weight: 600; }
+    .confidence-badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 10px;
+      border-radius: 12px;
+    }
+    .conf-high   { background: #dcfce7; color: #15803d; }
+    .conf-medium { background: #fef9c3; color: #854d0e; }
+    .conf-low    { background: #fee2e2; color: #991b1b; }
+    .analyze-spinner-row {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 13px; color: #64748b; padding: 12px 0;
+    }
+
     /* ── Loading spinner ── */
     .spinner {
       width: 16px; height: 16px;
@@ -426,6 +476,9 @@
 
     <div class="submit-row">
       <span id="loading-text" class="hidden" style="color:#64748b;font-size:13px;">Processing…</span>
+      <button class="btn btn-ghost" id="analyze-btn" onclick="submitAnalyze()" disabled title="Requires prior year ledger, prior year Schedule L, and current year ledger">
+        Analyze →
+      </button>
       <button class="btn btn-primary" id="submit-btn" onclick="submitRoll()">
         Roll Retained Earnings →
       </button>
@@ -510,6 +563,77 @@
 
   </div><!-- /results -->
 
+  <!-- ── Analysis results ── -->
+  <div id="analysis-section" class="hidden">
+
+    <!-- spinner shown while waiting -->
+    <div id="analyze-spinner-row" class="analyze-spinner-row hidden">
+      <div class="spinner" style="border-color:rgba(124,58,237,.2);border-top-color:#7c3aed;"></div>
+      Analyzing — this may take a moment…
+    </div>
+
+    <!-- Bridge figures -->
+    <div class="card" id="analysis-bridge-card">
+      <div class="card-title">Retained earnings bridge</div>
+      <table class="re-table" id="analysis-bridge-table">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th class="mono" id="an-th-prior">Prior year</th>
+            <th class="mono" id="an-th-current">Current year</th>
+          </tr>
+        </thead>
+        <tbody id="analysis-bridge-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- Suggested journal entries -->
+    <div class="card hidden" id="analysis-entries-card">
+      <div class="card-title">Suggested adjusting entries</div>
+      <table class="entry-table" id="analysis-entries-table">
+        <thead>
+          <tr>
+            <th>Description</th>
+            <th>Debit</th>
+            <th>Credit</th>
+            <th class="mono">Amount</th>
+            <th>Source</th>
+          </tr>
+        </thead>
+        <tbody id="analysis-entries-tbody"></tbody>
+      </table>
+      <p style="font-size:11px;color:#94a3b8;margin-top:12px;">
+        Review all suggested entries with the client before posting. Rationale is shown in the assumptions section below.
+      </p>
+    </div>
+
+    <!-- LLM narrative -->
+    <div class="card hidden" id="analysis-narrative-card">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+        <div class="card-title" style="margin-bottom:0;">Reconciliation narrative</div>
+        <span id="analysis-confidence-badge" class="confidence-badge"></span>
+      </div>
+      <div id="analysis-narrative-text" class="narrative-text"></div>
+      <div id="analysis-adjustment-types" style="margin-top:14px;display:none;">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;margin-bottom:8px;">Likely adjustment types</div>
+        <div id="analysis-type-chips" style="display:flex;flex-wrap:wrap;gap:6px;"></div>
+      </div>
+    </div>
+
+    <!-- Assumptions -->
+    <div class="card" id="analysis-assumptions-card">
+      <div class="card-title">Assumptions</div>
+      <ul class="assumption-list" id="analysis-assumptions-list"></ul>
+    </div>
+
+    <!-- Analysis errors -->
+    <div class="card hidden" id="analysis-errors-card">
+      <div class="section-head">Errors</div>
+      <ul class="message-list" id="analysis-errors-list"></ul>
+    </div>
+
+  </div><!-- /analysis -->
+
 </main>
 
 <script>
@@ -527,6 +651,7 @@ function handleFile(input, key) {
     document.getElementById(`fn-${key.replace('_','-').replace('_','-')}`).textContent = file.name;
     document.getElementById(`dz-${key.replace(/_/g,'-')}`).classList.add('loaded');
     maybeRunPreflight();
+    updateAnalyzeBtnState();
   };
   reader.readAsText(file);
 }
@@ -570,6 +695,7 @@ document.querySelectorAll('.drop-zone').forEach(zone => {
       document.getElementById(fnId(key)).textContent = file.name;
       zone.classList.add('loaded');
       maybeRunPreflight();
+      updateAnalyzeBtnState();
     };
     fr.readAsText(file);
   });
@@ -640,6 +766,7 @@ async function loadScenario() {
     document.getElementById('current-year').value = 2024;
 
     await runPreflight();
+    updateAnalyzeBtnState();
 
   } catch(e) { alert('Failed to load scenario: ' + e.message); }
 }
@@ -1183,6 +1310,152 @@ function exportCSV() {
   a.download = `retained_earnings_${r.prior_year}_${r.current_year}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ── Analyze ────────────────────────────────────────────────────────────────
+const ANALYZE_KEYS = ['prior_ledger', 'prior_schedule_l', 'current_ledger'];
+
+function updateAnalyzeBtnState() {
+  const btn = document.getElementById('analyze-btn');
+  btn.disabled = !ANALYZE_KEYS.every(k => csvStore[k]);
+}
+
+async function submitAnalyze() {
+  const btn      = document.getElementById('analyze-btn');
+  const spinner  = document.getElementById('analyze-spinner-row');
+  const section  = document.getElementById('analysis-section');
+
+  btn.disabled = true;
+  btn.textContent = 'Analyzing…';
+  section.classList.remove('hidden');
+  spinner.classList.remove('hidden');
+  section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Hide all result sub-cards while we wait
+  ['analysis-bridge-card','analysis-entries-card','analysis-narrative-card',
+   'analysis-assumptions-card','analysis-errors-card'].forEach(id => {
+    document.getElementById(id).classList.add('hidden');
+  });
+
+  try {
+    const body = {
+      prior_ledger_csv:      csvStore['prior_ledger'],
+      prior_schedule_l_csv:  csvStore['prior_schedule_l'],
+      current_ledger_csv:    csvStore['current_ledger'],
+      prior_year:   parseInt(document.getElementById('prior-year').value)   || 2023,
+      current_year: parseInt(document.getElementById('current-year').value) || 2024,
+    };
+    const res  = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    displayAnalysis(await res.json());
+  } catch(e) {
+    alert('Analysis request failed: ' + e.message);
+  } finally {
+    spinner.classList.add('hidden');
+    btn.disabled = false;
+    btn.textContent = 'Analyze →';
+    updateAnalyzeBtnState();
+  }
+}
+
+function displayAnalysis(data) {
+  if (data.status === 'error' || !data.bridge) {
+    renderList(data.errors || ['Unknown error'], 'analysis-errors-card', 'analysis-errors-list', 'msg-error');
+    document.getElementById('analysis-errors-card').classList.remove('hidden');
+    return;
+  }
+
+  const b = data.bridge;
+
+  // Bridge table
+  document.getElementById('an-th-prior').textContent   = b.prior_year;
+  document.getElementById('an-th-current').textContent = b.current_year;
+
+  const bridgeRows = [
+    { label: 'Beginning retained earnings',  p: b.prior_beg_re,           c: b.current_beg_re_book },
+    { label: 'Net income / (loss)',           p: b.prior_net_income,       c: b.current_net_income },
+    { label: 'Distributions / dividends',    p: -b.prior_distributions,   c: -b.current_distributions,
+      hide: b.prior_distributions === 0 && b.current_distributions === 0 },
+    { label: 'Book ending RE',               p: b.prior_book_ending_re,   c: null, total: true },
+    { label: 'Schedule L ending RE (line 25)', p: b.prior_schedule_l_re, c: null },
+    { label: 'Book vs Schedule L',           p: b.prior_book_tax_diff,    c: null,
+      hide: Math.abs(b.prior_book_tax_diff) < 1 },
+    { label: 'Expected beginning RE',        p: null,  c: b.current_expected_beg_re },
+    { label: 'Adjustment to beginning RE',   p: null,  c: b.current_beg_adjustment,
+      hide: Math.abs(b.current_beg_adjustment) < 1 },
+    { label: 'Projected ending RE',          p: null,  c: b.current_projected_ending_re, total: true },
+  ];
+
+  document.getElementById('analysis-bridge-tbody').innerHTML = bridgeRows
+    .filter(r => !r.hide)
+    .map(r => `
+      <tr class="${r.total ? 'row-total' : ''}">
+        <td>${r.label}</td>
+        ${r.p != null ? fmtCell(r.p) : '<td class="mono">—</td>'}
+        ${r.c != null ? fmtCell(r.c) : '<td class="mono">—</td>'}
+      </tr>`
+    ).join('');
+  document.getElementById('analysis-bridge-card').classList.remove('hidden');
+
+  // Suggested entries
+  const entries = b.suggested_entries || [];
+  if (entries.length) {
+    document.getElementById('analysis-entries-tbody').innerHTML = entries.map(e => {
+      const src = e.source === 'llm'
+        ? '<span class="entry-source-llm">AI</span>'
+        : '<span class="entry-source-det">Auto</span>';
+      return `
+        <tr>
+          <td>
+            <div style="font-weight:600;margin-bottom:3px;">${e.description}</div>
+            <div style="font-size:12px;color:#64748b;">${e.rationale}</div>
+          </td>
+          <td>${e.debit_account}</td>
+          <td>${e.credit_account}</td>
+          <td class="mono">${fmt(e.amount)}</td>
+          <td>${src}</td>
+        </tr>`;
+    }).join('');
+    document.getElementById('analysis-entries-card').classList.remove('hidden');
+  }
+
+  // LLM narrative
+  if (b.llm_narrative) {
+    document.getElementById('analysis-narrative-text').textContent = b.llm_narrative;
+
+    const confBadge = document.getElementById('analysis-confidence-badge');
+    if (b.confidence) {
+      confBadge.textContent = b.confidence.charAt(0).toUpperCase() + b.confidence.slice(1) + ' confidence';
+      confBadge.className = 'confidence-badge conf-' + b.confidence;
+    } else {
+      confBadge.textContent = '';
+    }
+
+    const types = b.named_adjustment_types || [];
+    if (types.length) {
+      document.getElementById('analysis-type-chips').innerHTML = types.map(t =>
+        `<span style="font-size:12px;background:#f1f5f9;padding:3px 10px;border-radius:12px;color:#334155;">${t}</span>`
+      ).join('');
+      document.getElementById('analysis-adjustment-types').style.display = '';
+    }
+
+    document.getElementById('analysis-narrative-card').classList.remove('hidden');
+  }
+
+  // Assumptions
+  const assumptions = b.assumptions || [];
+  document.getElementById('analysis-assumptions-list').innerHTML =
+    assumptions.map(a => `<li>${a}</li>`).join('');
+  document.getElementById('analysis-assumptions-card').classList.remove('hidden');
+
+  // Errors (e.g. LLM unavailable)
+  if ((data.errors || []).length) {
+    renderList(data.errors, 'analysis-errors-card', 'analysis-errors-list', 'msg-warn');
+    document.getElementById('analysis-errors-card').classList.remove('hidden');
+  }
 }
 
 // ── Init ───────────────────────────────────────────────────────────────────

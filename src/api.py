@@ -18,6 +18,8 @@ from fastapi.responses import HTMLResponse
 
 from src.models import (
     AccountTypeMapping,
+    AnalysisResponse,
+    AnalyzeRequest,
     ColumnMapping,
     DetectSchemaRequest,
     PreflightRequest,
@@ -29,6 +31,7 @@ from src.models import (
 )
 from src.reader import detect_schema, normalize_ledger, normalize_schedule_l
 from src.engine import roll_retained_earnings, _new_accounts
+from src.analyzer import analyze
 
 SCENARIOS_DIR = pathlib.Path(__file__).parent.parent / "scenarios"
 UI_DIR = pathlib.Path(__file__).parent.parent / "ui"
@@ -292,6 +295,46 @@ async def roll_json(request: RollJsonRequest):
         request.column_mapping,
         request.account_type_mapping,
         resolutions=request.resolutions,
+    )
+
+
+@app.post("/api/analyze", response_model=AnalysisResponse, tags=["analyze"])
+async def analyze_endpoint(request: AnalyzeRequest):
+    """Autonomous retained-earnings bridge analysis — no user input required.
+
+    Supply the prior year ledger + Schedule L and the current year ledger.
+    The current year Schedule L is intentionally omitted: this endpoint figures
+    out what adjustments the GL needs before that Schedule L can be prepared.
+
+    Returns deterministic adjusting entries plus an LLM-generated reconciliation
+    narrative (requires ANTHROPIC_API_KEY in the server environment).
+    """
+    try:
+        prior_ledger, _ = normalize_ledger(
+            request.prior_ledger_csv,
+            account_type_mapping=request.account_type_mapping,
+        )
+    except ValueError as e:
+        return AnalysisResponse(status="error", errors=[f"Prior-year ledger: {e}"])
+
+    try:
+        current_ledger, _ = normalize_ledger(
+            request.current_ledger_csv,
+            request.column_mapping,
+            request.account_type_mapping,
+        )
+    except ValueError as e:
+        return AnalysisResponse(status="error", errors=[f"Current-year ledger: {e}"])
+
+    try:
+        prior_sl = normalize_schedule_l(request.prior_schedule_l_csv)
+    except ValueError as e:
+        return AnalysisResponse(status="error", errors=[f"Prior-year Schedule L: {e}"])
+
+    return await analyze(
+        prior_ledger, prior_sl, current_ledger,
+        request.prior_year, request.current_year,
+        entity_name=request.entity_name,
     )
 
 
