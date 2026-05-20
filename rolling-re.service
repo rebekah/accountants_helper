@@ -14,12 +14,11 @@ Description=Rolling Retained Earnings API
 After=network.target
 
 [Service]
-# ── Edit these two lines to match your server ────────────────────────────────
-User=www-data
-WorkingDirectory=/opt/rolling_retained_earnings
+User=root
+WorkingDirectory=/app/accountants_helper
 
 # Activate the virtualenv and start uvicorn
-ExecStart=/opt/rolling_retained_earnings/.venv/bin/uvicorn src.api:app \
+ExecStart=/app/accountants_helper/.venv/bin/uvicorn src.api:app \
     --host 0.0.0.0 \
     --port 8000 \
     --workers 4
