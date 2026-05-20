@@ -309,18 +309,31 @@ async def analyze_endpoint(request: AnalyzeRequest):
     Returns deterministic adjusting entries plus an LLM-generated reconciliation
     narrative (requires ANTHROPIC_API_KEY in the server environment).
     """
+    prior_col_map = request.column_mapping
+    if prior_col_map is None:
+        prior_detection = detect_schema(request.prior_ledger_csv)
+        if not prior_detection.is_canonical and prior_detection.suggested_mapping:
+            prior_col_map = ColumnMapping(**prior_detection.suggested_mapping)
+
     try:
         prior_ledger, _ = normalize_ledger(
             request.prior_ledger_csv,
-            account_type_mapping=request.account_type_mapping,
+            prior_col_map,
+            request.account_type_mapping,
         )
     except ValueError as e:
         return AnalysisResponse(status="error", errors=[f"Prior-year ledger: {e}"])
 
+    current_col_map = request.column_mapping
+    if current_col_map is None:
+        current_detection = detect_schema(request.current_ledger_csv)
+        if not current_detection.is_canonical and current_detection.suggested_mapping:
+            current_col_map = ColumnMapping(**current_detection.suggested_mapping)
+
     try:
         current_ledger, _ = normalize_ledger(
             request.current_ledger_csv,
-            request.column_mapping,
+            current_col_map,
             request.account_type_mapping,
         )
     except ValueError as e:

@@ -11,7 +11,7 @@ Scenario coverage:
   4  New accounts added in current year
   5  Accumulated deficit (negative retained earnings)
   6  Shareholder distributions reduce projected RE
-  7  Bookkeeper changeover — non-canonical ledger schema with column mapping
+  7  Bookkeeper changeover — non-canonical ledger schema auto-detected
   8  Schedule L RE > Book RE (reverse gap — SL higher)
   9  Current year net loss — projected RE decreases, no entry needed
   10 Combination: book-tax gap + current year distributions
@@ -27,7 +27,7 @@ import pytest
 
 from src.analyzer import analyze
 from src.models import AccountTypeMapping, ColumnMapping
-from src.reader import normalize_ledger, normalize_schedule_l
+from src.reader import detect_schema, normalize_ledger, normalize_schedule_l
 
 SCENARIOS = Path(__file__).parent.parent / "scenarios"
 
@@ -43,11 +43,24 @@ def run_analyze(
     column_mapping: Optional[ColumnMapping] = None,
     account_type_mapping: Optional[AccountTypeMapping] = None,
 ):
+    prior_col_map = column_mapping
+    if prior_col_map is None:
+        d = detect_schema(prior_ledger_csv)
+        if not d.is_canonical and d.suggested_mapping:
+            prior_col_map = ColumnMapping(**d.suggested_mapping)
+
     prior_ledger, _ = normalize_ledger(
-        prior_ledger_csv, account_type_mapping=account_type_mapping
+        prior_ledger_csv, prior_col_map, account_type_mapping
     )
+
+    current_col_map = column_mapping
+    if current_col_map is None:
+        d = detect_schema(current_ledger_csv)
+        if not d.is_canonical and d.suggested_mapping:
+            current_col_map = ColumnMapping(**d.suggested_mapping)
+
     current_ledger, _ = normalize_ledger(
-        current_ledger_csv, column_mapping, account_type_mapping
+        current_ledger_csv, current_col_map, account_type_mapping
     )
     prior_sl = normalize_schedule_l(prior_sl_csv)
     return asyncio.run(
@@ -217,23 +230,16 @@ def test_06_distributions_correctly_reduce_projected_re():
     assert len(b.suggested_entries) == 0
 
 
-# ── Test 7: Bookkeeper changeover — explicit column mapping ──────────────────
+# ── Test 7: Bookkeeper changeover — auto-detected column mapping ─────────────
 
-def test_07_bookkeeper_changeover_with_explicit_column_mapping():
+def test_07_bookkeeper_changeover_auto_detected_column_mapping():
     """Scenario 07 — the new bookkeeper's software exports completely different
     column names (gl_code, gl_description, classification, period_debits,
-    period_credits).  When the caller supplies a ColumnMapping the analyzer
-    normalises the ledger and produces a clean bridge with no errors.
+    period_credits).  Without any caller-supplied mapping the analyzer must
+    auto-detect the schema via known-alias lookup and produce a clean bridge.
     """
     pl, ps, cl = scenario("07_bookkeeper_changeover")
-    col_map = ColumnMapping(
-        account_number="gl_code",
-        account_name="gl_description",
-        account_type="classification",
-        debit="period_debits",
-        credit="period_credits",
-    )
-    result = run_analyze(pl, ps, cl, column_mapping=col_map)
+    result = run_analyze(pl, ps, cl)
     b = result.bridge
 
     assert result.status == "ok"
