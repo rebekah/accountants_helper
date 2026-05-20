@@ -1,0 +1,23 @@
+SCENARIO 09 — MEALS & ENTERTAINMENT ADD-BACK (IRC §274)
+========================================================
+The company deducted $10,000 of meals & entertainment on the books.
+Under IRC §274, only 50% ($5,000) is deductible on the tax return.
+The $5,000 add-back increased taxable income above book income, making
+the Schedule L ending RE $5,000 higher than the GL.
+
+Key numbers:
+  2023 M&E on books:               $10,000
+  2023 M&E deductible on tax:       $5,000
+  Non-deductible add-back:          $5,000
+
+  2023 book net income:             $45,000
+  2023 tax net income:              $50,000
+  2023 book ending RE:             $195,000
+  2023 Schedule L ending RE:       $200,000  ← $5,000 higher
+
+  2024 GL opening RE (wrong):      $195,000  (carried forward book basis)
+  2024 GL opening RE (correct):    $200,000  (prior Schedule L basis)
+
+Expected adjustment:
+  Dr. Prior Year Adjustment (clearing)      $5,000
+  Cr. Retained Earnings                     $5,000

@@ -116,6 +116,63 @@ def _equity_non_re(ledger: pd.DataFrame) -> float:
     return float(other["credit"].sum() - other["debit"].sum())
 
 
+# ── Ledger-row builder ───────────────────────────────────────────────────────
+
+def _ledger_rows_for_entry(
+    debit_account: str,
+    credit_account: str,
+    amount: float,
+    current_ledger: pd.DataFrame,
+) -> List[Dict[str, Any]]:
+    """Return the two ready-to-paste ledger rows for a journal entry."""
+
+    def _find(name: str):
+        mask = current_ledger["account_name"].str.strip().str.lower() == name.strip().lower()
+        if mask.any():
+            r = current_ledger[mask].iloc[0]
+            return str(r["account_number"]), str(r["account_type"]), False
+        if _matches(name, _RE_PATTERNS):
+            re_rows = current_ledger[
+                current_ledger["account_name"].apply(lambda n: _matches(n, _RE_PATTERNS))
+            ]
+            if not re_rows.empty:
+                r = re_rows.iloc[0]
+                return str(r["account_number"]), str(r["account_type"]), False
+        return None, "equity", True  # new account
+
+    d_num, d_type, d_new = _find(debit_account)
+    c_num, c_type, c_new = _find(credit_account)
+
+    if d_new or c_new:
+        equity = current_ledger[current_ledger["account_type"] == "equity"]
+        nums = pd.to_numeric(equity["account_number"], errors="coerce").dropna()
+        next_num = str(int(nums.max()) + 1) if not nums.empty else "TBD"
+        if d_new:
+            d_num = next_num
+        if c_new:
+            # If both are new, give them sequential numbers
+            c_num = str(int(next_num) + 1) if d_new and next_num != "TBD" else next_num
+
+    return [
+        {
+            "account_number": d_num,
+            "account_name": debit_account,
+            "account_type": d_type,
+            "debit": round(amount, 2),
+            "credit": 0.0,
+            "is_new_account": d_new,
+        },
+        {
+            "account_number": c_num,
+            "account_name": credit_account,
+            "account_type": c_type,
+            "debit": 0.0,
+            "credit": round(amount, 2),
+            "is_new_account": c_new,
+        },
+    ]
+
+
 # ── Prompt helpers ────────────────────────────────────────────────────────────
 
 def _account_rows(ledger: pd.DataFrame) -> List[Dict[str, Any]]:
@@ -287,19 +344,15 @@ async def analyze(
         )
     else:
         direction = "credit" if c_beg_adjustment > 0 else "debit"
+        da = "Prior Year Adjustment (clearing)" if c_beg_adjustment > 0 else "Retained Earnings"
+        ca = "Retained Earnings" if c_beg_adjustment > 0 else "Prior Year Adjustment (clearing)"
         entries.append(SuggestedEntry(
             description=(
                 f"{'Increase' if c_beg_adjustment > 0 else 'Decrease'} beginning retained "
                 f"earnings to match prior year Schedule L"
             ),
-            debit_account=(
-                "Prior Year Adjustment (clearing)" if c_beg_adjustment > 0
-                else "Retained Earnings"
-            ),
-            credit_account=(
-                "Retained Earnings" if c_beg_adjustment > 0
-                else "Prior Year Adjustment (clearing)"
-            ),
+            debit_account=da,
+            credit_account=ca,
             amount=round(abs(c_beg_adjustment), 2),
             rationale=(
                 f"GL shows beginning RE of {_fmt(c_beg_re)}, but prior year Schedule L "
@@ -307,6 +360,7 @@ async def analyze(
                 f"{_fmt(abs(c_beg_adjustment))} to bring the starting point into agreement."
             ),
             source="deterministic",
+            ledger_rows=_ledger_rows_for_entry(da, ca, abs(c_beg_adjustment), current_ledger),
         ))
         assumptions.append(
             f"Current year ({current_year}) beginning RE in the GL ({_fmt(c_beg_re)}) does not "

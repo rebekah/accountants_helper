@@ -1,0 +1,11 @@
+account_number,account_name,account_type,debit,credit
+1010,Cash,Asset,95000,0
+1020,Accounts Receivable,Asset,45000,0
+2010,Accounts Payable,Liability,0,30000
+2020,Line of Credit,Liability,0,50000
+3010,Common Stock,Equity,0,10000
+3020,Retained Earnings - Beginning,Equity,0,280000
+4010,Service Revenue,Revenue,0,250000
+5010,Salaries & Wages,Expense,180000,0
+5020,Officer Life Insurance Expense,Expense,15000,0
+5030,Other Operating Expenses,Expense,35000,0

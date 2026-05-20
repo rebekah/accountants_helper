@@ -1,0 +1,23 @@
+SCENARIO 08 — SECTION 179 / BONUS DEPRECIATION TIMING DIFFERENCE
+=================================================================
+The company purchased $50,000 of equipment in 2023 and elected full
+Section 179 expensing on the tax return. On the books, only $10,000 of
+straight-line depreciation was recorded (5-year life). This created a
+$40,000 timing difference between book and tax income.
+
+Key numbers:
+  2023 book depreciation:          $10,000
+  2023 tax depreciation (Sec 179): $50,000
+  Extra depreciation on tax:       $40,000
+
+  2023 book net income:            $50,000
+  2023 tax net income:             $10,000
+  2023 book ending RE:            $250,000
+  2023 Schedule L ending RE:      $210,000  ← $40,000 lower
+
+  2024 GL opening RE (wrong):     $250,000  (carried forward book basis)
+  2024 GL opening RE (correct):   $210,000  (prior Schedule L basis)
+
+Expected adjustment:
+  Dr. Retained Earnings                    $40,000
+  Cr. Prior Year Adjustment (clearing)     $40,000

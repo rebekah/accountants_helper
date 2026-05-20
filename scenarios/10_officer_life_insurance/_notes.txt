@@ -1,0 +1,24 @@
+SCENARIO 10 — NON-DEDUCTIBLE OFFICER LIFE INSURANCE (IRC §264)
+==============================================================
+The company paid $15,000 in officer life insurance premiums in 2023.
+Under IRC §264, premiums on company-owned life insurance where the
+company is the beneficiary are not deductible. The full $15,000 was
+expensed on the books but added back on the tax return, making the
+Schedule L ending RE $15,000 higher than the GL.
+
+Key numbers:
+  2023 officer life insurance expense:     $15,000
+  Deductible on tax return:                    $0
+  Add-back to taxable income:              $15,000
+
+  2023 book net income:                    $20,000
+  2023 tax net income:                     $35,000
+  2023 book ending RE:                    $300,000
+  2023 Schedule L ending RE:              $315,000  ← $15,000 higher
+
+  2024 GL opening RE (wrong):             $300,000  (carried forward book basis)
+  2024 GL opening RE (correct):           $315,000  (prior Schedule L basis)
+
+Expected adjustment:
+  Dr. Prior Year Adjustment (clearing)     $15,000
+  Cr. Retained Earnings                    $15,000

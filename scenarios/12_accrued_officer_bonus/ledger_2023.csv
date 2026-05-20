@@ -1,0 +1,11 @@
+account_number,account_name,account_type,debit,credit
+1010,Cash,Asset,85000,0
+1020,Accounts Receivable,Asset,40000,0
+2010,Accounts Payable,Liability,0,15000
+2030,Accrued Officer Bonus Payable,Liability,0,25000
+3010,Common Stock,Equity,0,5000
+3020,Retained Earnings - Beginning,Equity,0,80000
+4010,Service Revenue,Revenue,0,300000
+5010,Salaries & Wages,Expense,200000,0
+5020,Officer Bonus Expense,Expense,25000,0
+5030,Other Operating Expenses,Expense,40000,0

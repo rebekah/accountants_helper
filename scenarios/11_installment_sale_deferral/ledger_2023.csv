@@ -1,0 +1,10 @@
+account_number,account_name,account_type,debit,credit
+1010,Cash,Asset,160000,0
+1020,Accounts Receivable,Asset,30000,0
+2010,Accounts Payable,Liability,0,20000
+3010,Common Stock,Equity,0,10000
+3020,Retained Earnings - Beginning,Equity,0,120000
+4010,Service Revenue,Revenue,0,160000
+4020,Gain on Sale of Land,Revenue,0,30000
+5010,Salaries Expense,Expense,100000,0
+5020,Other Operating Expenses,Expense,40000,0

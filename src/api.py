@@ -150,9 +150,18 @@ def list_scenarios():
     if not SCENARIOS_DIR.exists():
         return {"scenarios": []}
 
+    # Scenarios only relevant to the 4-file Roll workflow are excluded here.
+    _ANALYZE_EXCLUDED = {
+        "03_beginning_balance_mismatch",
+        "04_new_accounts_added",
+        "05_accumulated_deficit",
+        "06_distributions",
+        "07_bookkeeper_changeover",
+    }
+
     scenarios = []
     for d in sorted(SCENARIOS_DIR.iterdir()):
-        if not d.is_dir():
+        if not d.is_dir() or d.name in _ANALYZE_EXCLUDED:
             continue
         notes_path = d / "_notes.txt"
         title = d.name

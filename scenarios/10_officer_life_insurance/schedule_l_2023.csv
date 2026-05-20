@@ -1,0 +1,9 @@
+line_number,description,beginning_of_year,end_of_year
+1,Cash,60000,95000
+2a,Accounts Receivable,35000,45000
+15,Total Assets,95000,140000
+16,Accounts Payable,20000,30000
+18,Other Liabilities (Line of Credit),60000,50000
+22b,Common Stock,10000,10000
+25,Retained Earnings Unappropriated,280000,315000
+28,Total Liabilities and Shareholders Equity,95000,140000

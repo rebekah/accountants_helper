@@ -1,0 +1,25 @@
+SCENARIO 12 — ACCRUED OFFICER BONUS TIMING (IRC §267)
+======================================================
+The company accrued a $25,000 year-end bonus to the majority
+shareholder/officer. Under IRC §267, compensation owed to a related
+party is only deductible in the year it is actually paid. The bonus
+was not paid until February 2024, so it was not deductible on the
+2023 return. The $25,000 add-back made taxable income — and therefore
+Schedule L RE — $25,000 higher than the GL.
+
+Key numbers:
+  2023 accrued officer bonus (books):      $25,000
+  Deductible on 2023 tax return:               $0  (not paid until 2024)
+  Add-back to taxable income:              $25,000
+
+  2023 book net income:                    $35,000
+  2023 tax net income:                     $60,000
+  2023 book ending RE:                    $115,000
+  2023 Schedule L ending RE:              $140,000  ← $25,000 higher
+
+  2024 GL opening RE (wrong):             $115,000  (carried forward book basis)
+  2024 GL opening RE (correct):           $140,000  (prior Schedule L basis)
+
+Expected adjustment:
+  Dr. Prior Year Adjustment (clearing)     $25,000
+  Cr. Retained Earnings                    $25,000

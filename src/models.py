@@ -171,6 +171,7 @@ class SuggestedEntry(BaseModel):
     amount: float
     rationale: str
     source: str = "deterministic"  # "deterministic" | "llm"
+    ledger_rows: List[Dict[str, Any]] = []  # ready-to-paste rows for the current year ledger
 
 
 class BridgeAnalysis(BaseModel):
