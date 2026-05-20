@@ -74,6 +74,7 @@ cmd_status() {
     else
         warn "Server is not running."
         [ -f "$PID_FILE" ] && { warn "Stale PID file found — removing."; rm -f "$PID_FILE"; }
+        return 0
     fi
 }
 
