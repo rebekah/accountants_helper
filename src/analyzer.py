@@ -36,6 +36,62 @@ _SYSTEM_PROMPT = (
 )
 
 
+# ── Provider dispatch ─────────────────────────────────────────────────────────
+
+def _strip_fences(text: str) -> str:
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.split("```")[1]
+        if text.startswith("json"):
+            text = text[4:]
+    return text.strip()
+
+
+async def _call_anthropic(prompt: str) -> dict:
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise ValueError("ANTHROPIC_API_KEY is not set")
+    import anthropic
+    client = anthropic.AsyncAnthropic(api_key=api_key)
+    response = await client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=1800,
+        system=[{"type": "text", "text": _SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return json.loads(_strip_fences(response.content[0].text))
+
+
+async def _call_gemini(prompt: str) -> dict:
+    api_key = os.getenv("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError("GEMINI_API_KEY is not set")
+    from google import genai
+    from google.genai import types
+    client = genai.Client(api_key=api_key)
+    response = await client.aio.models.generate_content(
+        model="gemini-2.5-flash",
+        contents=prompt,
+        config=types.GenerateContentConfig(
+            system_instruction=_SYSTEM_PROMPT,
+            max_output_tokens=4096,
+            # Disable thinking: structured-output tasks don't benefit from it
+            # and it consumes most of the token budget before the actual response.
+            thinking_config=types.ThinkingConfig(thinking_budget=0),
+        ),
+    )
+    return json.loads(_strip_fences(response.text))
+
+
+async def _call_llm(prompt: str) -> dict:
+    provider = os.getenv("LLM_PROVIDER", "anthropic").lower().strip()
+    if provider == "anthropic":
+        return await _call_anthropic(prompt)
+    if provider == "gemini":
+        return await _call_gemini(prompt)
+    raise ValueError(f"Unknown LLM_PROVIDER '{provider}' — use 'anthropic' or 'gemini'")
+
+
 # ── Balance-sheet helpers ─────────────────────────────────────────────────────
 
 def _total_assets(ledger: pd.DataFrame) -> float:
@@ -293,63 +349,41 @@ async def analyze(
     )
 
     # ── LLM narrative (optional) ──────────────────────────────────────────────
-    api_key = os.getenv("ANTHROPIC_API_KEY")
-    if api_key:
+    provider = os.getenv("LLM_PROVIDER", "anthropic").lower().strip()
+    has_key = bool(
+        os.getenv("ANTHROPIC_API_KEY") if provider == "anthropic"
+        else os.getenv("GEMINI_API_KEY")
+    )
+    if has_key:
         try:
-            import anthropic  # imported lazily — not required if no key is set
-
-            client = anthropic.AsyncAnthropic(api_key=api_key)
-            response = await client.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=1800,
-                system=[
-                    {
-                        "type": "text",
-                        "text": _SYSTEM_PROMPT,
-                        "cache_control": {"type": "ephemeral"},
-                    }
-                ],
-                messages=[
-                    {
-                        "role": "user",
-                        "content": _build_user_prompt(
-                            prior_year=prior_year,
-                            current_year=current_year,
-                            entity_name=entity_name,
-                            prior_accounts=_account_rows(prior_ledger),
-                            prior_sl_lines=_sl_rows(prior_sl),
-                            p_beg_re=p_beg_re,
-                            p_net_inc=p_net_inc,
-                            p_dist=p_dist,
-                            p_book_re=p_book_re,
-                            p_sl_re=p_sl_re,
-                            p_diff=p_diff,
-                            current_accounts=_account_rows(current_ledger),
-                            c_beg_re=c_beg_re,
-                            c_expected_beg_re=c_expected_beg_re,
-                            c_beg_adjustment=c_beg_adjustment,
-                            c_net_inc=c_net_inc,
-                            c_dist=c_dist,
-                            c_projected_re=c_projected_re,
-                            new_accounts=new_accts,
-                            deterministic_entries=[e.model_dump() for e in entries],
-                            assumptions=assumptions,
-                        ),
-                    }
-                ],
+            prompt = _build_user_prompt(
+                prior_year=prior_year,
+                current_year=current_year,
+                entity_name=entity_name,
+                prior_accounts=_account_rows(prior_ledger),
+                prior_sl_lines=_sl_rows(prior_sl),
+                p_beg_re=p_beg_re,
+                p_net_inc=p_net_inc,
+                p_dist=p_dist,
+                p_book_re=p_book_re,
+                p_sl_re=p_sl_re,
+                p_diff=p_diff,
+                current_accounts=_account_rows(current_ledger),
+                c_beg_re=c_beg_re,
+                c_expected_beg_re=c_expected_beg_re,
+                c_beg_adjustment=c_beg_adjustment,
+                c_net_inc=c_net_inc,
+                c_dist=c_dist,
+                c_projected_re=c_projected_re,
+                new_accounts=new_accts,
+                deterministic_entries=[e.model_dump() for e in entries],
+                assumptions=assumptions,
             )
+            parsed = await _call_llm(prompt)
 
-            raw = response.content[0].text.strip()
-            # Strip accidental markdown fences
-            if raw.startswith("```"):
-                raw = raw.split("```")[1]
-                if raw.startswith("json"):
-                    raw = raw[4:]
-            parsed = json.loads(raw)
-
-            bridge.llm_narrative        = parsed.get("llm_narrative")
+            bridge.llm_narrative          = parsed.get("llm_narrative")
             bridge.named_adjustment_types = parsed.get("named_adjustment_types", [])
-            bridge.confidence           = parsed.get("confidence")
+            bridge.confidence             = parsed.get("confidence")
 
             for ae in parsed.get("additional_entries", []):
                 try:
@@ -365,7 +399,6 @@ async def analyze(
                     pass
 
         except Exception as exc:
-            # Don't fail the whole request — deterministic data is still useful
             errors.append(f"LLM narrative unavailable: {exc}")
 
     return AnalysisResponse(status="ok", bridge=bridge, errors=errors)
